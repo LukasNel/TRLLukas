@@ -1,7 +1,7 @@
 import os
 import subprocess
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl.extras.vllm_client import VLLMClient
+from.vllm_client import VLLMClient
 import torch
 
 class TestVLLMClientServerTP():
@@ -20,7 +20,7 @@ class TestVLLMClientServerTP():
         
         # Start the server with tensor parallelism disabled
         self.server_process = subprocess.Popen(
-            ["trl", "vllm-serve", "--model", self.model_id, "--tensor-parallel-size", "1", "--gpu_memory_utilization", "0.9", "--max_model_len", "8000"],
+            ["deeptools", "vllm-serve", "--model", self.model_id, "--tensor-parallel-size", "1", "--gpu_memory_utilization", "0.9", "--max_model_len", "8000"],
             env=env
         )
         
@@ -29,15 +29,15 @@ class TestVLLMClientServerTP():
         print("Server process started")
         
         # Initialize the client with a longer timeout
-        self.client = VLLMClient(connection_timeout=480)
+        self.client = VLLMClient(connection_timeout=580)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
 
-    def test_generate(self):
-        prompts = ["Hello, AI!", "Tell me a joke"]
-        print(prompts)
-        outputs = self.client.generate(prompts)
-        for output in outputs:
-            print(self.tokenizer.decode(output, skip_special_tokens=True))
+    async def test_generate(self):
+        prompt = "Tell me a joke"
+        print(prompt)
+        outputs = self.client.generate(prompt)
+        async for output in outputs:
+            print(output)
 
     def test_update_model_params(self):
         model = AutoModelForCausalLM.from_pretrained(self.model_id, device_map="cuda")
