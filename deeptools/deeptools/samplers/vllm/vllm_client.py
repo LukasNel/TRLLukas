@@ -21,8 +21,8 @@ from typing import Optional, AsyncGenerator
 import torch
 from torch import nn
 
-from .import_utils import is_requests_available, is_vllm_ascend_available, is_vllm_available
-
+from deeptools.import_utils import is_requests_available, is_vllm_ascend_available, is_vllm_available
+from deeptools.records import StreamingResponseTokenT
 
 if is_requests_available():
     import requests
@@ -146,7 +146,7 @@ class VLLMClient:
         min_p: float = 0.0,
         max_tokens: int = 16,
         guided_decoding_regex: Optional[str] = None,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[StreamingResponseTokenT, None]:
         """
         Generates model completions for the provided prompts.
 
@@ -197,9 +197,8 @@ class VLLMClient:
                 async for line in response.content:
                     if line:
                         try:
-                            data = json.loads(line)
-                            for text in data["text"]:
-                                yield text
+                            data = StreamingResponseTokenT.model_validate_json(line)
+                            yield data
                         except json.JSONDecodeError:
                             continue
 

@@ -1,6 +1,6 @@
 import modal
 import os
-app = modal.App("trlwithtools")
+app = modal.App("main_grpo")
 GPU_USED="A100-80gb"
 model_id = "Qwen/QwQ-32B"
 # model_id="Qwen/Qwen2.5-1.5B" # for testing
@@ -15,6 +15,8 @@ def install_dependencies():
 
 image = (modal.Image.debian_slim(python_version="3.12")
     .pip_install("torch==2.6.0", "transformers")
+    .pip_install("unsloth==2025.3.19")
+    .pip_install("tensorboard")
     .run_function(install_dependencies, volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,

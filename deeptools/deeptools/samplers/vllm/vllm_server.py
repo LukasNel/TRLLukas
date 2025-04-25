@@ -23,15 +23,15 @@ import uuid
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import torch 
 from transformers import AutoTokenizer
-from .utils import CLIParser
-from .import_utils import (
+from deeptools.utils import CLIParser
+from deeptools.import_utils import (
     is_fastapi_available,
     is_pydantic_available,
     is_uvicorn_available,
     is_vllm_ascend_available,
     is_vllm_available,
 )
-
+from deeptools.records import StreamingResponseTokenT
 
 if is_fastapi_available():
     from fastapi import BackgroundTasks, FastAPI
@@ -45,15 +45,15 @@ if is_uvicorn_available():
     import uvicorn
 
 
-if is_vllm_available():
-    from vllm import LLM, SamplingParams
-    from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-    from vllm.distributed.parallel_state import get_world_group
-    from vllm.distributed.utils import StatelessProcessGroup
-    from vllm.sampling_params import GuidedDecodingParams
+# if is_vllm_available():
+from vllm import LLM, SamplingParams
+from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
+from vllm.distributed.parallel_state import get_world_group
+from vllm.distributed.utils import StatelessProcessGroup
+from vllm.sampling_params import GuidedDecodingParams
 
-    if is_vllm_ascend_available():
-        from vllm_ascend.distributed.device_communicators.pyhccl import PyHcclCommunicator as PyNcclCommunicator
+if is_vllm_ascend_available():
+    from vllm_ascend.distributed.device_communicators.pyhccl import PyHcclCommunicator as PyNcclCommunicator
 
 
 logger = logging.getLogger(__name__)
@@ -336,10 +336,11 @@ def main(script_args: ScriptArguments):
 
     def vllm_generate_iterator(
         prompt: str, sampling_params : SamplingParams, request_id: str, echo: bool = False, stop: str  = None, stop_token_ids: list[int] = None, 
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Iterator[StreamingResponseTokenT]:
         if request_id is None: raise ValueError('request_id must not be None.')
         if stop_token_ids is None: stop_token_ids = []
         stop_token_ids.append(tokenizer.eos_token_id)
+        print("stop_token_ids", tokenizer.decode(stop_token_ids))
         stop_ = set()
         if isinstance(stop, str) and stop != '': stop_.add(stop)
         elif isinstance(stop, list) and stop != []: stop_.update(stop)
@@ -349,19 +350,26 @@ def main(script_args: ScriptArguments):
         # if self.config['temperature'] <= 1e-5: top_p = 1.0
         # else: top_p = self.config['top_p']
         # config = self.config.model_construct_env(stop=list(stop_), top_p=top_p, **attrs)
-        llm.llm_engine.add_request(request_id=request_id, prompt=prompt, sampling_params=sampling_params)
+        llm.llm_engine.add_request(request_id=request_id, prompt=prompt, params=sampling_params)
 
         token_cache = []
         print_len = 0
-
+        text = ""
         while llm.llm_engine.has_unfinished_requests():
             for request_output in llm.llm_engine.step():
                 # Add the new tokens to the cache
                 for output in request_output.outputs:
                     text = output.text
-                    yield {'text': text, 'error_code': 0, 'num_tokens': len(output.token_ids)}
+                    yield StreamingResponseTokenT(text=text, 
+                    error_code=0, 
+                    num_tokens=len(output.token_ids), 
+                    token_ids=output.token_ids, 
+                    last_token_id=output.token_ids[-1],
+                    last_token=tokenizer.decode(output.token_ids[-1]))
 
-                if request_output.finished: break
+                if request_output.finished: 
+                    break
+        print("Finished", text)
 
     @app.post("/stream_generate/")
     def stream_generate(request: GenerateStreamingRequest):
@@ -403,12 +411,15 @@ def main(script_args: ScriptArguments):
             min_p=request.min_p,
             max_tokens=request.max_tokens,  
             guided_decoding=guided_decoding,
+            stop_token_ids=[tokenizer.eos_token_id],
         )
         request_id = str(uuid.uuid4())
         results_generator = vllm_generate_iterator(prompt=request.prompt, sampling_params=sampling_params, request_id=request_id)
+        # results_generator = [{'text': 'Hello world', 'error_code': 0, 'num_tokens': 10}]*3
         async def stream_results() -> AsyncGenerator[bytes, None]:
             for request_output in results_generator:
-                yield (json.dumps(request_output) + "\n").encode("utf-8")
+                # print("Sending response", request_output)
+                yield (request_output.model_dump_json() + "\n").encode("utf-8")
 
         return StreamingResponse(stream_results())
     
