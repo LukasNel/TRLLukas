@@ -1,7 +1,7 @@
 import modal
 import os
 app = modal.App("main_grpo")
-GPU_USED="A100-80gb"
+GPU_USED="A100-80gb:2"
 model_id = "Qwen/QwQ-32B"
 # model_id="Qwen/Qwen2.5-1.5B" # for testing
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
@@ -25,6 +25,8 @@ image = (modal.Image.debian_slim(python_version="3.12")
     .add_local_dir("deeptools","/deeptools", copy=True)
     .pip_install_from_pyproject("deeptools/pyproject.toml")
     .run_commands("ls && chmod +x deeptools/deeptools && cd deeptools && ls && pip install -e .")
+    .add_local_python_source("grpo_trainer_with_tools")
+    .add_local_python_source("basic_grpo_trainer")
 )
 
 
@@ -32,9 +34,9 @@ image = (modal.Image.debian_slim(python_version="3.12")
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
     },)
-async def run_codeinline_agent(user_query : str):
+async def run_grpo_trainer():
     import os
-    from deeptools.samplers.vllm.test_vllm import TestVLLMClientServerTP
+    from basic_grpo_trainer import main
     # Set environment variables for NCCL
     os.environ["NCCL_DEBUG"] = "INFO"
     os.environ["NCCL_IB_DISABLE"] = "1"
@@ -42,45 +44,13 @@ async def run_codeinline_agent(user_query : str):
     os.environ['LOCAL_RANK'] ="0"
     os.environ['RANK'] ="0"
     os.environ['WORLD_SIZE'] ="1"
-    test_vllm = TestVLLMClientServerTP(model_id)
-    await test_vllm.test_generate()
+    await main(model_id=model_id)
 
-@app.function(image=image, timeout=6000, gpu=GPU_USED,volumes={
-        "/root/.cache/huggingface": hf_cache_vol,
-        "/root/.cache/vllm": vllm_cache_vol,
-    },secrets=[together_ai_api_key],)
-async def run_litellm_toolcaller(user_query : str):
-    import os
-    from deeptools.test_toolcaller import TestToolCaller
-    # Set environment variables for NCCL
-    os.environ["NCCL_DEBUG"] = "INFO"
-    os.environ["NCCL_IB_DISABLE"] = "1"
-    os.environ["NCCL_P2P_DISABLE"] = "1"
-    os.environ['LOCAL_RANK'] ="0"
-    os.environ['RANK'] ="0"
-    os.environ['WORLD_SIZE'] ="1"
-    test_toolcaller = TestToolCaller(litellm_model_name="together_ai/deepseek-ai/DeepSeek-R1")
-    await test_toolcaller.test_litellm_toolcaller()
 
-@app.function(image=image, timeout=6000, gpu=GPU_USED,volumes={
-        "/root/.cache/huggingface": hf_cache_vol,
-        "/root/.cache/vllm": vllm_cache_vol,
-    },secrets=[together_ai_api_key],)
-async def run_vllm_toolcaller(user_query : str):
-    import os
-    from deeptools.test_toolcaller import TestToolCaller
-    # Set environment variables for NCCL
-    os.environ["NCCL_DEBUG"] = "INFO"
-    os.environ["NCCL_IB_DISABLE"] = "1"
-    os.environ["NCCL_P2P_DISABLE"] = "1"
-    os.environ['LOCAL_RANK'] ="0"
-    os.environ['RANK'] ="0"
-    os.environ['WORLD_SIZE'] ="1"
-    test_toolcaller = TestToolCaller(vllm_model_id=model_id, user_query=user_query)
-    await test_toolcaller.test_vllm_toolcaller()
+
 
 @app.local_entrypoint()
 def main():
-    run_vllm_toolcaller.remote("Which is a better stock to buy, Apple or Tesla?")
+    run_grpo_trainer.remote()
 
 
