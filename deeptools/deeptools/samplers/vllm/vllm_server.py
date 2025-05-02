@@ -92,16 +92,20 @@ class WeightSyncWorkerExtension:
             world_size (`int`):
                 Total number of participating processes in the update group.
         """
+        print("Checking if communicator is already initialized")
         if self.pynccl_comm is not None:
             raise RuntimeError("Weight update group already initialized. Call close_communicator first.")
-
+        print("getting world group")
         # Get the rank of the current worker in the global world group.
         rank = get_world_group().rank
 
         # Create a stateless process group to manage communication between training processes and vLLM workers.
+        print("creating stateless process group")
         pg = StatelessProcessGroup.create(host=host, port=port, rank=rank, world_size=world_size)
 
         # Initialize the NCCL-based communicator for weight synchronization.
+        print("3"*20 + "Initializing communicator" + "3"*20)
+        print("world_size", world_size)
         self.pynccl_comm = PyNcclCommunicator(pg, device=self.device)
 
         # The client process that sends updated weights has the highest rank (world_size - 1).
@@ -280,7 +284,7 @@ def main(script_args: ScriptArguments):
         # This is particularly useful here because we generate completions from the same prompts.
         enable_prefix_caching=script_args.enable_prefix_caching,
         max_model_len=script_args.max_model_len,
-        worker_extension_cls="trl.scripts.vllm_serve.WeightSyncWorkerExtension",
+        worker_extension_cls="deeptools.samplers.vllm.vllm_server.WeightSyncWorkerExtension",
     )
 
     app = FastAPI()
@@ -503,10 +507,11 @@ def main(script_args: ScriptArguments):
                 - `port` (`int`): Port number to be used for communication.
                 - `world_size` (`int`): Total number of participating processes in the group.
         """
+        print("4"*20 + "Initializing communicator" + "4"*20, script_args.tensor_parallel_size)
         background_tasks.add_task(
             llm.collective_rpc,
             "init_communicator",
-            args=(request.host, request.port, script_args.tensor_parallel_size + 1),
+            args=(request.host, request.port, script_args.tensor_parallel_size),
         )
         return {"message": "Request received, initializing communicator"}
 

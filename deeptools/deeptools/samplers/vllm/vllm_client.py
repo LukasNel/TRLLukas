@@ -97,10 +97,13 @@ class VLLMClient:
         self.host = host
         self.server_port = server_port
         self.group_port = group_port
-        self.check_server(connection_timeout)  # check server and fail after timeout
-        # self.init_communicator()
+        self.check_server(connection_timeout)  # check server and fail after timeou
+        print("Initializing communicator")
+        self.init_communicator()
+        print("Communicator initialized")
+        print("Registering atexit")
         atexit.register(self.close_communicator)  # when the client object is deleted, close the weight update group
-
+        print("Atexit registered")
     def check_server(self, total_timeout: float = 0.0, retry_interval: float = 2.0):
         """
         Check server availability with retries on failure, within a total timeout duration. If the server is not up
@@ -214,8 +217,8 @@ class VLLMClient:
         else:
             raise Exception(f"Request failed: {response.status_code}, {response.text}")
 
-        world_size = tensor_parallel_size + 1
-        self.rank = tensor_parallel_size  # The client's rank is the last process
+        world_size = tensor_parallel_size
+        self.rank = tensor_parallel_size - 1 # The client's rank is the last process
 
         # Initialize weight update group
         url = f"http://{self.host}:{self.server_port}/init_communicator/"
