@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import atexit
+import datetime
 import json
 import logging
 import time
 from typing import Optional, AsyncGenerator
+from torch.distributed import ProcessGroup, TCPStore
 
 import torch
 from torch import nn
@@ -179,7 +181,7 @@ class VLLMClient:
         """
         url = f"http://{self.host}:{self.server_port}/stream_generate/"
         
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
             async with session.post(
                 url,
                 json={
@@ -228,8 +230,21 @@ class VLLMClient:
             raise Exception(f"Request failed: {response.status_code}, {response.text}")
 
         # Set up the communication group for weight broadcasting
-        pg = StatelessProcessGroup.create(host=self.host, port=self.group_port, rank=self.rank, world_size=world_size)
+        store = TCPStore(
+            host_name=self.host,
+            port=self.group_port,
+            world_size=world_size,
+            is_master=False,
+            timeout=datetime.timedelta(seconds=300),
+        )
+        pg = StatelessProcessGroup(
+            rank=self.rank,
+            world_size=world_size,
+            store=store,
+            data_expiration_seconds=3600)
         self.pynccl_comm = PyNcclCommunicator(pg, device=0)
+
+        return 
 
     def update_named_param(self, name: str, weights: torch.Tensor):
         """

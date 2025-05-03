@@ -13,6 +13,52 @@ from deeptools.tools.newsapi_tool import NewsSearchTool
 import copy
 import os
 from dateutil.parser import parse
+import asyncio
+import yfinance as yf
+from datetime import datetime, timedelta, date
+from typing import Optional
+
+def get_next_day_price_change(ticker: str, current_date: date) -> Optional[float]:
+    """Get the actual price change for the next trading day"""
+    # Convert current_date to string format for yfinance
+    date_str = current_date.strftime('%Y-%m-%d')
+    
+    # Fetch data for a window of a few days to capture the next trading day
+    # We'll get data for current date plus 5 days to ensure we capture the next trading day
+    end_date = (current_date + timedelta(days=5)).strftime('%Y-%m-%d')
+    
+    # Fetch historical data
+    data = yf.download(ticker, start=date_str, end=end_date)
+    
+    # If no data was retrieved, return None
+    if data.empty:
+        raise ValueError(f"No data found for {ticker} on {date_str}")
+    
+    # Get the trading days in our data
+    trading_days = data.index.tolist()
+    
+    # Find the current trading day index (may not be exactly current_date if it's a weekend/holiday)
+    current_day_idx = None
+    for i, day in enumerate(trading_days):
+        if day.date() >= current_date:
+            current_day_idx = i
+            break
+            
+    # If we couldn't find the current day or it's the last day in our data, return None
+    if current_day_idx is None or current_day_idx >= len(trading_days) - 1:
+        raise ValueError(f"No data found for {ticker} on {date_str}")
+        
+    # Get the next trading day
+    next_day_idx = current_day_idx + 1
+    
+    # Calculate the price change (as a percentage)
+    current_close = data['Close'].iloc[current_day_idx]
+    next_close = data['Close'].iloc[next_day_idx]
+    price_change = ((next_close - current_close) / current_close) * 100
+    
+    return price_change
+        
+
 class GRPOTrainer:
     def __init__(
         self,
@@ -32,11 +78,12 @@ class GRPOTrainer:
             model_name = model_id,
             max_seq_length = max_new_tokens,
             dtype = torch.bfloat16,
-            load_in_4bit = True,
+            load_in_4bit = False,
             trust_remote_code = True,
             device_map=device
         )
-        self.ref_model = copy.deepcopy(model)
+        # self.ref_model = copy.deepcopy(model)
+        self.ref_model = None
         self.model = model
         self.tokenizer = tokenizer
         self.kl_coef = kl_coef
@@ -54,7 +101,7 @@ class GRPOTrainer:
         )
         # Set up optimizer  
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
-        cast(VLLMSampler, self.vllm_toolcaller.sampler).client.update_model_params(self.model)
+        # cast(VLLMSampler, self.vllm_toolcaller.sampler).client.update_model_params(self.model)
 
 
     def compute_reward(self, prediction: Optional[Dict[str, Any]], actual_change: float, response_text: str) -> float:
@@ -84,25 +131,21 @@ class GRPOTrainer:
 
         return max(-1, min(10, reward))  # Clip reward between -1 and 10
 
-    def get_next_day_price_change(self, dataset: Union[List[Dict[str, Any]], Dict[str, Any]], current_row_idx: int) -> Optional[float]:
+    def get_next_day_price_change(self, row: Dict[str, Any]) -> Optional[float]:
         """Get the actual price change for the next trading day"""
-        if isinstance(dataset, dict):
-            dataset = [dataset]
-            
-        current_row = dataset[current_row_idx]
-        ticker = current_row['company_info']['ticker']
-        current_date = current_row['company_info']['current_date']
+        ticker = row['company_info']['ticker']
+        current_date = row['company_info']['current_date']
 
-        # Look for the next trading day's data
-        for i in range(current_row_idx + 1, len(dataset)):
-            next_row = dataset[i]
-            if next_row['company_info']['ticker'] == ticker:
-                next_date = next_row['company_info']['current_date']
-                if next_date - current_date <= timedelta(days=3):  # Allow for weekends
-                    next_price = next_row['company_info']['price']['close']
-                    current_price = current_row['company_info']['price']['close']
-                    return ((next_price - current_price) / current_price) * 100
-        return None
+        # # Look for the next trading day's data
+        # for i in range(current_row_idx + 1, len(dataset)):
+        #     next_row = dataset[i]
+        #     if next_row['company_info']['ticker'] == ticker:
+        #         next_date = next_row['company_info']['current_date']
+        #         if next_date - current_date <= timedelta(days=3):  # Allow for weekends
+        #             next_price = next_row['company_info']['price']['close']
+        #             current_price = current_row['company_info']['price']['close']
+        #             return ((next_price - current_price) / current_price) * 100
+        return get_next_day_price_change(ticker, current_date)
 
     def format_prompt(self, row: Dict[str, Any]) -> str:
         """Format the input data into a prompt"""
@@ -126,7 +169,35 @@ Question: Based on this information, analyze whether this stock will go up or do
 """
         return context
 
-    async def process_single_example(self, row: Dict[str, Any], idx: int) -> Optional[Tuple[torch.Tensor, float, Dict[str, Any]]]:
+    async def _calculate_kl_div(self, inputs, log_probs: torch.Tensor) -> torch.Tensor:
+        """Calculate the KL divergence between the logits and the reference logits"""
+        # Get reference model log probabilities
+        if self.ref_model is None:
+            raise ValueError("Reference model not set")
+        with torch.no_grad():
+            # self.ref_model = self.ref_model.to(self.device) # move to device
+            ref_outputs = self.ref_model(
+                input_ids=inputs.input_ids,
+                attention_mask=inputs.attention_mask,
+            )
+            # self.ref_model = self.ref_model.to("cpu") # move back to cpu
+            ref_logits = ref_outputs.logits[:, -1, :]
+            ref_log_probs = torch.log_softmax(ref_logits, dim=-1)
+
+        # Compute KL divergence
+        diff = (ref_log_probs - log_probs).pow(2).sum(3).sqrt()
+        if diff < 0.01:
+            kl_div = torch.tensor(0.0, device=self.device)
+        else:
+            kl_div = F.kl_div(
+                log_probs,
+                ref_log_probs,
+                reduction='batchmean'
+            )
+        return kl_div
+            
+
+    async def process_single_example(self, row: Dict[str, Any]) -> Optional[Tuple[torch.Tensor, float, Dict[str, Any]]]:
         """Process a single example and return the loss components"""
         # Format prompt
         user_prompt = self.format_prompt(row)
@@ -169,7 +240,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
         # prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{user_prompt}<|im_end|>\n<|im_start|>assistant\n"
 
         # Get actual price change
-        actual_change = self.get_next_day_price_change(row, idx)
+        actual_change = self.get_next_day_price_change(row)
         if actual_change is None:
             return None
 
@@ -179,7 +250,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
         # Generate response from current model
         response_text = ""
         with torch.no_grad():
-            cutoff_date = parse(row['company_info']['current_date']) - timedelta(days=1)
+            cutoff_date = row['company_info']['current_date'] - timedelta(days=1)
             async for output in self.vllm_toolcaller.generate(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -219,27 +290,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
         logits = outputs.logits[:, -1, :]
         log_probs = torch.log_softmax(logits, dim=-1)
 
-        # Get reference model log probabilities
-        with torch.no_grad():
-            # self.ref_model = self.ref_model.to(self.device) # move to device
-            ref_outputs = self.ref_model(
-                input_ids=inputs.input_ids,
-                attention_mask=inputs.attention_mask,
-            )
-            # self.ref_model = self.ref_model.to("cpu") # move back to cpu
-            ref_logits = ref_outputs.logits[:, -1, :]
-            ref_log_probs = torch.log_softmax(ref_logits, dim=-1)
-
-        # Compute KL divergence
-        diff = (ref_log_probs - log_probs).pow(2).sum(3).sqrt()
-        if diff < 0.01:
-            kl_div = torch.tensor(0.0, device=self.device)
-        else:
-            kl_div = F.kl_div(
-                log_probs,
-                ref_log_probs,
-                reduction='batchmean'
-            )
+        kl_div =  0 # await self._calculate_kl_div(inputs, log_probs)
 
         # Calculate rewards
         reward = self.compute_reward(prediction, actual_change, response_text)
@@ -260,7 +311,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
 
         # Process each example in the batch
         for idx, row in enumerate(batch):
-            result = await self.process_single_example(row, idx)
+            result = await self.process_single_example(row)
             
             if result is not None:
                 loss, reward, _ = result
@@ -294,7 +345,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
 
             # Create batches
             for i in range(0, len(dataset), self.batch_size):
-                batch = dataset[i:i + self.batch_size]
+                batch = [dataset[i + j] for j in range(self.batch_size)]
                 print(batch)
                 metrics = await self.train_step(batch)
                 

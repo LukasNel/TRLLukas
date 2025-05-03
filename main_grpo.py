@@ -7,6 +7,7 @@ model_id = "Qwen/QwQ-32B"
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 together_ai_api_key = modal.Secret.from_name("together-ai")
+news_api_key = modal.Secret.from_name("news-api")
 def install_dependencies():
     from transformers import AutoTokenizer, AutoModelForCausalLM
     model_name = model_id
@@ -33,7 +34,9 @@ image = (modal.Image.debian_slim(python_version="3.12")
 @app.function(image=image, timeout=6000, gpu=GPU_USED,volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
-    },)
+    },
+           secrets=[news_api_key]   
+              )
 async def run_grpo_trainer():
     import os
     from basic_grpo_trainer import main
@@ -44,6 +47,7 @@ async def run_grpo_trainer():
     os.environ['LOCAL_RANK'] ="0"
     os.environ['RANK'] ="0"
     os.environ['WORLD_SIZE'] ="1"
+    os.environ['CUDA_VISIBLE_DEVICES'] = "0"
     await main(model_id=model_id)
 
 

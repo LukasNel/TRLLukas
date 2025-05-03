@@ -134,6 +134,7 @@ class WeightSyncWorkerExtension:
         self.pynccl_comm.group.barrier()
 
         # Load the received weights into the model.
+        print("loading weights", name, weight.shape)
         self.model_runner.model.load_weights(weights=[(name, weight)])
 
     def close_communicator(self) -> None:

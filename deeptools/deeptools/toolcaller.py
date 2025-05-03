@@ -3,9 +3,8 @@ from deeptools.samplers.abstract import AbstractSampler
 from smolagents import Tool, LocalPythonExecutor
 
 class ToolCaller:
-    def __init__(self, sampler : AbstractSampler,  system_prompt : str = "", authorized_imports : list[str] = []):
+    def __init__(self, sampler : AbstractSampler, authorized_imports : list[str] = []):
         self.sampler = sampler
-        self.system_prompt = system_prompt
         self.authorized_imports = authorized_imports
     
     def _init_pyexp(self, tools: list[Tool] = [],):
@@ -63,9 +62,9 @@ class ToolCaller:
                         yield output
                     break
 
-    async def generate(self, user_prompt: str, tools: list[Tool] = []):
+    async def generate(self, system_prompt: str, user_prompt: str, tools: list[Tool] = []):
         pyexp, tool_desc = self._init_pyexp(tools)
-        system_prompt = self.system_prompt.format(tool_desc=tool_desc)
+        system_prompt = system_prompt.format(tool_desc=tool_desc)
         print(system_prompt)
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
         total_output : str = ""
