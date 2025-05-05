@@ -6,27 +6,26 @@ import os
 import torch
 from transformers import AutoTokenizer
 
-def setup_env():
-    os.environ["NCCL_DEBUG"] = "WARN"
-    os.environ["NCCL_IB_DISABLE"] = "1"
-    os.environ["NCCL_P2P_DISABLE"] = "1"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    os.environ["NCCL_DEBUG"] = "INFO"
-    os.environ["NCCL_IB_DISABLE"] = "1"
-    os.environ["NCCL_P2P_DISABLE"] = "1"
-    os.environ['LOCAL_RANK'] ="0"
-    os.environ['RANK'] ="0"
-    os.environ['WORLD_SIZE'] ="1"
+def setup_env(env: dict[str, str]):
+    env["NCCL_DEBUG"] = "WARN"
+    env["NCCL_IB_DISABLE"] = "1"
+    env["NCCL_P2P_DISABLE"] = "1"
+    env["CUDA_VISIBLE_DEVICES"] = "0"
+    env["NCCL_DEBUG"] = "INFO"
+    env["NCCL_IB_DISABLE"] = "1"
+    env["NCCL_P2P_DISABLE"] = "1"
+    env['LOCAL_RANK'] ="0"
+    env['RANK'] ="0"
+    env['WORLD_SIZE'] ="1"
     
 
 class VLLMSampler(AbstractSampler):
     def __init__(self, model_id : str, max_output=9000):
         self.max_output = max_output
         self.model_name = model_id
-        setup_env()
         # Set up environment
         env = os.environ.copy()
-        
+        setup_env(env)
         print("Starting server process")
         self.model_id = model_id
         

@@ -95,10 +95,11 @@ class ToolCaller:
                     await gen.asend(observation)
                 except StopAsyncIteration:
                     pass
-                yield observation
+                if observation:
+                    yield observation
                 code_block = ""
             elif is_in_code_block and output != '`' and output != '``' and output != '```':
                 code_block += output
-            yield output
+            yield str(output)
   
   

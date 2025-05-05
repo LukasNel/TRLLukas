@@ -6,6 +6,7 @@ model_id = "Qwen/QwQ-32B"
 # model_id="Qwen/Qwen2.5-1.5B" # for testing
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+stonks_v2_secrets = modal.Secret.from_name("stonks-v2")
 together_ai_api_key = modal.Secret.from_name("together-ai")
 def install_dependencies():
     from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -29,7 +30,9 @@ image = (modal.Image.debian_slim(python_version="3.12")
 @app.function(image=image, timeout=6000, gpu=GPU_USED,volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
-    },)
+    },secrets=[stonks_v2_secrets],
+              memory=256000
+              )
 async def run_codeinline_agent(user_query : str):
     import os
     from deeptools.samplers.vllm.test_vllm import TestVLLMClientServerTP

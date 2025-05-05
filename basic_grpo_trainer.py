@@ -4,7 +4,7 @@ import re
 from datasets import Dataset, load_dataset
 from typing import Dict, List, Optional, Tuple, Any, Union, cast
 import torch.nn.functional as F
-from unsloth import FastLanguageModel
+# from unsloth import FastLanguageModel
 # from transformers import AutoModelForCausalLM, AutoTokenizer
 from deeptools.toolcaller import ToolCaller
 from deeptools.samplers import LiteLLMSampler, VLLMSampler
@@ -17,6 +17,50 @@ import asyncio
 import yfinance as yf
 from datetime import datetime, timedelta, date
 from typing import Optional
+import json
+import wandb
+from accelerate import Accelerator
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Configure Accelerate first
+def configure_accelerate():
+    """Configure Accelerate for distributed training."""
+    # You can either use this function to programmatically configure accelerate
+    # Or you can run `accelerate config` in the command line before running your script
+    
+    # Check if a config file already exists
+    if not os.path.exists(os.path.expanduser("~/.cache/huggingface/accelerate/default_config.yaml")):
+        print("No accelerate config found. Creating default configuration...")
+        # Create a default config
+        config = {
+            "compute_environment": "LOCAL_MACHINE",
+            "distributed_type": "MULTI_GPU",
+            "fp16": True,  # Enable mixed precision training
+            "machine_rank": 0,
+            "main_training_function": "main",
+            "num_machines": 1,
+            "num_processes": torch.cuda.device_count(),
+            "rdzv_backend": "static",
+            "same_network": True,
+            "use_cpu": False
+        }
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.expanduser("~/.cache/huggingface/accelerate"), exist_ok=True)
+        
+        # Save config
+        with open(os.path.expanduser("~/.cache/huggingface/accelerate/default_config.yaml"), "w") as f:
+            yaml.dump(config, f)
+        
+        print(f"Created accelerate config with {config['num_processes']} GPUs.")
+    else:
+        print("Using existing accelerate configuration.")
+
+    # Set a seed for reproducibility
+    set_seed(42)
+    
+    return
+
 
 def get_next_day_price_change(ticker: str, current_date: date) -> Optional[float]:
     """Get the actual price change for the next trading day"""
@@ -69,40 +113,71 @@ class GRPOTrainer:
         temperature: float = 0.7,
         max_new_tokens: int = 9000,
         top_p: float = 0.95,
-        device: str = "cuda:1", # gpu 1 since gpu 0 is used by vllm
+        device: str = "auto",  # gpu 1 since gpu 0 is used by vllm
+        log_dir: str = "logs",
+        gradient_accumulation_steps: int = 2,
+        learning_rate: float = 1e-5
     ):
-        # self.model = AutoModelForCausalLM.from_pretrained(model_id)
-        # self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name = model_id,
-            max_seq_length = max_new_tokens,
-            dtype = torch.bfloat16,
-            load_in_4bit = False,
-            trust_remote_code = True,
-            device_map=device
+        # Setup VLLM tool caller
+        # if "CUDA_VISIBLE_DEVICES" not in os.environ:
+            # os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU 1 for VLLM
+        # Initialize accelerator first
+        self.vllm_toolcaller = ToolCaller(
+            sampler=VLLMSampler(model_id=model_id, max_output=max_new_tokens),
+            authorized_imports=["pandas"]
         )
-        # self.ref_model = copy.deepcopy(model)
-        self.ref_model = None
-        self.model = model
-        self.tokenizer = tokenizer
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, 
+                                                            device_map="auto",
+                                                            # max_memory={0:"0GIB", 1:"40GIB"},
+                                                            # offload_folder=".",
+                                                            torch_dtype=torch.float16,
+                                                          
+                                                          )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, 
+                                                       )
+        
+        # Load model and tokenizer
+        
+        
+        # Create reference model (for KL divergence)
+        # self.ref_model = AutoModelForCausalLM.from_pretrained(model_id, 
+        #                                                         device_map="auto",
+        #                                                     max_memory={0:"0GIB", 1:"20GIB"},
+        #                                                     offload_folder=".",
+        #                                                     torch_dtype=torch.float16,
+        #                                                   ) 
+        # for param in self.ref_model.parameters():
+        #     param.requires_grad = False
+            
+        # Set up optimizer and scheduler
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=1000)
+        
+        # Prepare with accelerator
+        # self.model, self.optimizer, self.scheduler, self.ref_model = self.accelerator.prepare(
+        #     self.model, self.optimizer, self.scheduler, self.ref_model
+        # )
+        
+        
+            
+        
+        
+        # Store hyperparameters
         self.kl_coef = kl_coef
         self.clip_range = clip_range
         self.batch_size = batch_size
         self.temperature = temperature
         self.top_p = top_p
-        # Move models to device
-        self.device = device
-        # self.model.to(self.device)
         self.max_new_tokens = max_new_tokens
-        self.vllm_toolcaller = ToolCaller(
-                sampler=VLLMSampler(model_id=model_id, max_output=max_new_tokens),
-                authorized_imports=["pandas"]
-        )
-        # Set up optimizer  
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
-        # cast(VLLMSampler, self.vllm_toolcaller.sampler).client.update_model_params(self.model)
-
+        
+        # Set up logging
+        self.log_dir = log_dir
+        self.log_file = os.path.join(self.log_dir, "log.json")
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, "w") as f:
+                f.write("")
 
     def compute_reward(self, prediction: Optional[Dict[str, Any]], actual_change: float, response_text: str) -> float:
         """Compute reward based on prediction accuracy and response format"""
@@ -187,7 +262,7 @@ Question: Based on this information, analyze whether this stock will go up or do
         # Compute KL divergence
         diff = (ref_log_probs - log_probs).pow(2).sum(3).sqrt()
         if diff < 0.01:
-            kl_div = torch.tensor(0.0, device=self.device)
+            kl_div = torch.tensor(0.0)
         else:
             kl_div = F.kl_div(
                 log_probs,
@@ -196,7 +271,12 @@ Question: Based on this information, analyze whether this stock will go up or do
             )
         return kl_div
             
-
+    async def log_dict(self, dict: Dict[str, Any]):
+        print(dict)
+        wandb.log(dict)
+        with open(self.log_file, "a") as f:
+            json.dump(dict, f)
+            f.write("\n")
     async def process_single_example(self, row: Dict[str, Any]) -> Optional[Tuple[torch.Tensor, float, Dict[str, Any]]]:
         """Process a single example and return the loss components"""
         # Format prompt
@@ -245,7 +325,7 @@ Don't give up! You're in charge of solving the task, not providing directions to
             return None
 
         # Tokenize prompt
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
 
         # Generate response from current model
         response_text = ""
@@ -266,7 +346,12 @@ Don't give up! You're in charge of solving the task, not providing directions to
             ): 
                 response_text += output
                 print(output, end="")
-
+        with open(os.path.join(self.log_dir, "response_text.json"), "a") as f:
+            json.dump({
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "response_text": response_text
+            }, f)
         # Get generated text
         # response_text = self.tokenizer.decode(outputs[0, inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
@@ -280,13 +365,19 @@ Don't give up! You're in charge of solving the task, not providing directions to
             prediction = {"direction": "unknown", "magnitude": 0.0}
 
         # Get logprobs for RL objective
-        target_ids = self.tokenizer(response_text, return_tensors="pt", add_special_tokens=False).input_ids.to(self.device)
+        target_ids = self.tokenizer(response_text, return_tensors="pt", add_special_tokens=False).input_ids
+        # first_layer_name = list(self.model.device_map.keys())[0]
+        # device = self.model.device_map[first_layer_name]
         # self.model = self.model.to(self.device)
+        device = next(iter(self.model.parameters())).device.type
+        inputs.input_ids = inputs.input_ids.to(device)
+        inputs.attention_mask = inputs.attention_mask.to(device)
         outputs = self.model(
             input_ids=inputs.input_ids,
             attention_mask=inputs.attention_mask,
         )
         # self.model = self.model.to("cpu")
+        
         logits = outputs.logits[:, -1, :]
         log_probs = torch.log_softmax(logits, dim=-1)
 
@@ -296,16 +387,22 @@ Don't give up! You're in charge of solving the task, not providing directions to
         reward = self.compute_reward(prediction, actual_change, response_text)
 
         # Policy gradient loss with reward
-        pg_loss = -reward * log_probs[0, target_ids[0, 0]]
+        pg_loss = -reward * log_probs[0, target_ids[0, 0]] #/log_probs[0, target_ids[0, 0]].detach()
 
         # Add KL penalty
         loss = pg_loss + self.kl_coef * kl_div
-
+        await self.log_dict({
+            "loss": loss.item(),
+            "reward": reward,
+            "prediction": prediction,
+            "actual_change": actual_change,
+            "response_text": response_text
+        })
         return loss, reward, prediction
 
     async def train_step(self, batch: List[Dict[str, Any]]) -> Dict[str, float]:
-        """Process a batch of examples and update the model"""
-        total_loss = torch.tensor(0.0, device=self.device)
+        """Process a batch of examples and update the model using Accelerate"""
+        total_loss = 0.0
         total_rewards = 0.0
         valid_examples = 0
 
@@ -315,58 +412,130 @@ Don't give up! You're in charge of solving the task, not providing directions to
             
             if result is not None:
                 loss, reward, _ = result
-                total_loss = total_loss + loss
+                # Scale the loss according to gradient accumulation
+                scaled_loss = loss / self.gradient_accumulation_steps
+                
+                # Backward pass with accelerator
+                self.model.backward(scaled_loss)
+                
+                total_loss += loss.detach().float()
                 total_rewards += reward
                 valid_examples += 1
+        
+        # Only step optimizer at the end of accumulation
+        if valid_examples > 0:
+            # Clip gradients
+            self.model.clip_grad_norm_(1.0)
+            self.optimizer.step()
+            self.scheduler.step()
+            self.optimizer.zero_grad()
+            
+            # Update VLLM model parameters
+            try:
+                cast(VLLMSampler, self.vllm_toolcaller.sampler).client.update_model_params(self.model)
+            except Exception as e:
+                print(f"Warning: Failed to update VLLM model params: {e}")
 
-        if valid_examples == 0:
-            return {"loss": 0.0, "reward": 0.0}
-
-        # Average the loss and rewards
-        avg_loss = total_loss / valid_examples
-        avg_reward = total_rewards / valid_examples
-
-        # Update model
-        self.optimizer.zero_grad()
-        avg_loss.backward()
-        self.optimizer.step()
-        cast(VLLMSampler, self.vllm_toolcaller.sampler).client.update_model_params(self.model)
-        return {
-            "loss": avg_loss.item(),
-            "reward": avg_reward
+        # Gather metrics from all processes
+        metrics = {
+            "loss": total_loss.item() / max(1, valid_examples),
+            "reward": total_rewards / max(1, valid_examples),
+            "valid_examples": valid_examples
         }
+        
+        # Gather metrics across processes
+        # metrics = self.accelerator.gather(metrics)
+        
+        return metrics
 
     async def train(self, dataset: Dataset, num_epochs: int = 1):
-        """Train the model for specified number of epochs"""
+        """Train the model for specified number of epochs with Accelerate"""
+        # Initialize wandb on main process only
+        # if self.accelerator.is_main_process:
+        wandb.init(project="deepstock-tools-grpo-trainer")
+        
+        # Training loop
         for epoch in range(num_epochs):
             total_loss = 0.0
             total_rewards = 0.0
             num_batches = 0
-
-            # Create batches
-            for i in range(0, len(dataset), self.batch_size):
-                batch = [dataset[i + j] for j in range(self.batch_size)]
-                print(batch)
+            
+            # Use accelerator-aware dataloader if dataset supports it
+            # Otherwise, create batches manually
+            dataloader = [
+                [dataset[i + j] for j in range(min(self.batch_size, len(dataset) - i))]
+                for i in range(0, len(dataset), self.batch_size)
+            ]
+            
+            
+            # Training loop
+            for batch_idx, batch in enumerate(dataloader):
+                # Print only on main process to avoid duplicate logs
+                # if self.accelerator.is_main_process and batch_idx % 5 == 0:
+                print(f"Epoch {epoch + 1}, Batch {batch_idx}/{len(dataloader)}")
+                
                 metrics = await self.train_step(batch)
                 
+                # Accumulate metrics
                 total_loss += metrics["loss"]
                 total_rewards += metrics["reward"]
                 num_batches += 1
-
-                if num_batches % 10 == 0:
-                    print(f"Epoch {epoch + 1}, Batch {num_batches}")
-                    print(f"Average Loss: {total_loss / num_batches:.4f}")
-                    print(f"Average Reward: {total_rewards / num_batches:.4f}")
-
+                
+                # Log every 2 batches on main process
+                if batch_idx % 2 == 0:
+                    avg_loss = total_loss / num_batches
+                    avg_reward = total_rewards / num_batches
+                    
+                    print(f"Epoch {epoch + 1}, Batch {batch_idx}/{len(dataloader)}")
+                    print(f"Average Loss: {avg_loss:.4f}")
+                    print(f"Average Reward: {avg_reward:.4f}")
+                    
+                    # Log to wandb on main process
+                    wandb.log({
+                        "epoch": epoch + 1,
+                        "batch": batch_idx,
+                        "loss": avg_loss,
+                        "reward": avg_reward,
+                    })
+                    
+                    # Optionally save checkpoint
+                    if batch_idx % 100 == 0:
+                        self.save_checkpoint(f"checkpoint_epoch{epoch+1}_batch{batch_idx}")
+            
+            # End of epoch summary - only on main process
             print(f"\nEpoch {epoch + 1} Summary:")
             print(f"Final Average Loss: {total_loss / num_batches:.4f}")
             print(f"Final Average Reward: {total_rewards / num_batches:.4f}\n")
+            
+                # Log epoch metrics to wandb
+            wandb.log({
+                "epoch": epoch + 1,
+                "epoch_loss": total_loss / num_batches,
+                "epoch_reward": total_rewards / num_batches,
+            })
+    
+    def save_checkpoint(self, name: str):
+        """Save a checkpoint of the model"""
+        checkpoint_dir = os.path.join(self.log_dir, "checkpoints")
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+        
+        # Use accelerator to save checkpoint properly
+        self.model.save_pretrained(os.path.join(checkpoint_dir, name))
+        
+        # Log checkpoint save
+        print(f"Saved checkpoint: {name}")
 
 
-async def main(model_id: str = "meta-llama/Meta-Llama-3-8B-Instruct"):
-    trainer = GRPOTrainer(model_id=model_id)
+async def main(model_id: str = "meta-llama/Meta-Llama-3-8B-Instruct", log_dir: str = "logs"):
+    trainer = GRPOTrainer(model_id=model_id, log_dir=log_dir)
     dataset = load_dataset("2084Collective/deepstock-sp500-companies-with-info-and-user-prompt_buy_sell_v2", split="train")
     await trainer.train(dataset, num_epochs=1)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_id", type=str, default="meta-llama/Meta-Llama-3-8B-Instruct")
+    parser.add_argument("--log_dir", type=str, default="logs")
+    args = parser.parse_args()
+    asyncio.run(main(args.model_id, args.log_dir))
