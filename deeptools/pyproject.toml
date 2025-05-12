@@ -1,9 +1,9 @@
 [project]
 name = "deeptools"
 version = "0.1.0"
-description = ""
+description = "A package to inject python execution into the reasoning trace of LLMs."
 authors = [
-    {name = "Lukas",email = "lukas@nexunicorn.com"}
+    {name = "Lukas",email = "lukas@nelsoftware.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

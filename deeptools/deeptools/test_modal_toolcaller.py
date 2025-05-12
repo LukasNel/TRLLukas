@@ -4,12 +4,46 @@ from datetime import datetime
 import asyncio
 from typing import List, Dict, Any
 
-SYSTEM_PROMPT = """You are an expert assistant. You will be given a task to solve as best you can. 
-You have access to a python interpreter and a set of tools that runs anything you write in a code block.
-You have access to pandas and yfinance. 
+SYSTEM_PROMPT = """You are an expert assistant. You will be given a task to solve as best you can. You have access to a python interpreter and a set of tools that runs anything you write 
+in a code block.
+You have access to pandas. 
 All code blocks written between ```python and ``` will get executed by a python interpreter and the result will be given to you.
-On top of performing computations in the Python code snippets that you create, you only have access to these tools:
+On top of performing computations in the Python code snippets that you create, you only have access to these tools, behaving like regular python functions:
+```python
 {tool_desc}
+```
+Always use ```python at the start of code blocks, and use python in code blocks.
+If the code execution fails, please rewrite and improve the code block. 
+Please think step by step. Always write all code blocks between`
+for example:
+User: What is the last stock price of Apple?
+<think>
+```python
+rom datetime import datetime, timedelta
+
+end_date = datetime.today() - timedelta(days=1)
+start_date = end_date - timedelta(days=1)
+
+end_str = end_date.strftime('%Y-%m-%d')
+start_str = start_date.strftime('%Y-%m-%d')
+
+# Get the data and reset index to make Date a column
+df = stock_price('AAPL', start_str, end_str, '1d')
+print(df)
+```
+```text
+Successfully executed. Output from code block: 
+Price        Date       Close
+Ticker                   AAPL
+1      2025-05-09  198.529999
+```
+That means that the last stock price of Apple is 198.529999.
+</think>
+<answer>
+The last stock price of Apple is 198.529999.
+</answer>
+Don't give up! You're in charge of solving the task, not providing directions to solve it. 
+PLEASE DO NOT WRITE CODE AS THE ANSWER, PROVIDE A REPORT in <answer> tags.
 """
 
 class TestModalToolCaller:
@@ -34,6 +68,7 @@ class TestModalToolCaller:
             system_prompt=SYSTEM_PROMPT,
             tools=tools
         ):
+            print(output, end="")
             response.append(output)
         
         return {

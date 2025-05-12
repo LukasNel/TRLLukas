@@ -43,11 +43,10 @@ aapl_data = stock_price(
 # Display the data to find the closing price on the last day (October 20)
 last_week_prices = aapl_data
 last_week_prices.tail()  # To show the most recent data from the end date
-```
-```text
+`````text
 Successfully executed. Output from code block:
 
-Price            Close        High         Low        Open    Volume
+```Price            Close        High         Low        Open    Volume
 Ticker            AAPL        AAPL        AAPL        AAPL      AAPL
 Date                                                                
 2023-10-16  177.419662  177.777044  175.225735  175.463995  52517000
@@ -56,7 +55,7 @@ Date
 2023-10-19  174.183350  176.546022  173.915310  174.759116  59302900
 
 **Status:** ✅ Success
-```
+
 ---
 
 ### Test Case 2
@@ -368,8 +367,7 @@ print("Comparison Summary:")
 print(f"- Revenue: {'Tesla' if tesla_revenue > msft_revenue else 'Microsoft'} led (Gap: ${abs(tesla_revenue - msft_revenue):,.0f})")
 print(f"- Gross Profit: {'Tesla' if tesla_gross_profit > msft_gross_profit else 'Microsoft'} led (Gap: ${abs(tesla_gross_profit - msft_gross_profit):,.0f})")
 print(f"- Net Margin: {'Tesla' if tesla_margin_net > msft_margin_net else 'Microsoft'} had higher margins")
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'from company_tools import company_financials' due to: InterpreterError: Import from company_tools is not allowed. Authorized imports are: ['statistics', 'yfinance', 'random', 'math', 'time', 'pandas', 'unicodedata', 'itertools', 'stat', 'datetime', 're', 'queue', 'collections']
 ````
 
@@ -477,8 +475,7 @@ First, code to get the latest closing price of AMZN:
 ```python
 amzn_prices = stock_price('AMZN', start_date='2023-01-01', end_date='2023-12-31', interval='1d')
 latest_close = amzn_prices['Close'][-1]
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'latest_close = amzn_prices['Close'][-1]' due to: InterpreterError: Could not index Ticker            AMZN
 Date                  
 2023-01-03   85.820000
@@ -504,8 +501,7 @@ Hmm, using `stock_price` returns a DataFrame where the last row might not be acc
 amzn_prices = stock_price('AMZN', start_date='2020-01-01', end_date='2023-12-31', interval='1d')
 latest_close = amzn_prices['Close'].iloc[-1]  # Use iloc to get the last element
 latest_close
-```
-```text
+`````text
 Successfully executed. Output from code block:
 
 ```Ticker
@@ -517,8 +513,7 @@ balancesheet = company_financials('AMZN', 'balance', 'quarterly')
 shares_outstanding = balancesheet.loc['commonStockSharesOutstanding', 0]  # Take the latest quarter's value
 market_cap = latest_close * shares_outstanding
 market_cap
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'balancesheet = company_financials('AMZN', 'balance', 'quarterly')' due to: Exception: Access to financial data not allowed beyond cutoff date: 2025-05-12
 ````
 
@@ -556,8 +551,7 @@ shares_outstanding = balancesheet.loc['commonStockSharesOutstanding'][0]  # Late
 market_cap = latest_close * shares_outstanding
 
 print(f"Current Market Cap of Amazon: ${market_cap:,.0f} USD")
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'balancesheet = company_financials('AMZN', 'balance', 'quarterly')' due to: Exception: Access to financial data not allowed beyond cutoff date: 2025-05-12
 ````
 
@@ -672,8 +666,7 @@ print(f"Average Daily Volatility (Annually): {volatility:.2%}\n")
 
 print("Recent Daily Closing Prices (Last 5 Days):")
 print(closing_prices.tail())
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'closing_prices = nvda_data["Adj Close"]' due to: InterpreterError: Could not index Price            Close        High         Low        Open     Volume
 Ticker            NVDA        NVDA        NVDA        NVDA       NVDA
 Date                                                                 
@@ -734,8 +727,7 @@ print(f"Average Daily Volatility (Annualized): {volatility:.2%}\n")
 
 print("Last 5 Days Closing Prices:")
 print(closing_prices.tail())
-```
-```text
+`````text
 NVIDIA (NVDA) Past Month Analysis (2025-04-12 to 2025-05-12):
 --------------------------------------------------
 Failed. Please try another strategy. Code execution failed at line 'print(f"Initial Close: ${first_close:.2f} | Final Close: ${last_close:.2f}")' due to: TypeError: unsupported format string passed to Series.__format__
@@ -1122,8 +1114,7 @@ for ticker in tickers:
 
 print(f"P/E ratios: {pe_ratios}")
 highest_pe_ticker = max(pe_ratios, key=pe_ratios.get)
-```
-```text
+`````text
 Failed. Please try another strategy. Code execution failed at line 'from stock_tools import stock_price, company_financials' due to: InterpreterError: Import from stock_tools is not allowed. Authorized imports are: ['statistics', 'yfinance', 'random', 'math', 'time', 'pandas', 'unicodedata', 'itertools', 'stat', 'datetime', 're', 'queue', 'collections']
 ````
 
@@ -1159,8 +1150,7 @@ for ticker in tickers:
 
 highest_pe = max(pe_ratios, key=pe_ratios.get)
 f"_OFFSET_1_{prices}\n_OFFSET_2_{pe_ratios}\n最高のP/E比率をもつ企業は{highest_pe}で、その比率は{pe_ratios[highest_pe]:.2f}です。"
-```
-```text
+`````text
 Failed. Please try another strategy. Code parsing failed on line 20 due to: SyntaxError
     annual_is = msft財務情報財務情報財務...  # this line is nonsensical in Japanese but stays as error
                                ^
@@ -1191,8 +1181,7 @@ highest_pe_company = max(pe_ratios, key=lambda k: pe_ratios[k])
 
 result = f"The company with the highest P/E ratio is {highest_pe_company} with a ratio of {pe_ratios[highest_pe_company]:.2f}."
 result
-```
-```text
+`````text
 Successfully executed. Output from code block:
 
 ```The company with the highest P/E ratio is MSFT with a ratio of 33.90.text

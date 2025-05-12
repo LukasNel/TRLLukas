@@ -345,7 +345,6 @@ def main(script_args: ScriptArguments):
         if request_id is None: raise ValueError('request_id must not be None.')
         if stop_token_ids is None: stop_token_ids = []
         stop_token_ids.append(tokenizer.eos_token_id)
-        print("stop_token_ids", tokenizer.decode(stop_token_ids))
         stop_ = set()
         if isinstance(stop, str) and stop != '': stop_.add(stop)
         elif isinstance(stop, list) and stop != []: stop_.update(stop)
@@ -376,7 +375,6 @@ def main(script_args: ScriptArguments):
 
                 if request_output.finished: 
                     break
-        print("Finished", text)
 
     @app.post("/stream_generate/")
     def stream_generate(request: GenerateStreamingRequest):
@@ -422,10 +420,8 @@ def main(script_args: ScriptArguments):
         )
         request_id = str(uuid.uuid4())
         results_generator = vllm_generate_iterator(prompt=request.prompt, sampling_params=sampling_params, request_id=request_id)
-        # results_generator = [{'text': 'Hello world', 'error_code': 0, 'num_tokens': 10}]*3
         async def stream_results() -> AsyncGenerator[bytes, None]:
             for request_output in results_generator:
-                # print("Sending response", request_output)
                 yield (request_output.model_dump_json() + "\n").encode("utf-8")
 
         return StreamingResponse(stream_results())
@@ -475,23 +471,7 @@ def main(script_args: ScriptArguments):
         completion_ids = [list(output.token_ids) for outputs in all_outputs for output in outputs.outputs]
         return {"completion_ids": completion_ids}
 
-    async def stream_generate(prompt, sampling_params):
-        """
-        Generates completions for the provided prompts.
-        """
-        # Streaming case
-        results_generator = llm.llm_engine.generate(prompt, sampling_params, request_id)
-        async def stream_results() -> AsyncGenerator[bytes, None]:
-            async for request_output in results_generator:
-                prompt = request_output.prompt
-                assert prompt is not None
-                text_outputs = [
-                    prompt + output.text for output in request_output.outputs
-                ]
-                ret = {"text": text_outputs}
-                yield (json.dumps(ret) + "\n").encode("utf-8")
-
-        return StreamingResponse(stream_results())
+   
     
     class InitCommunicatorRequest(BaseModel):
         host: str

@@ -20,7 +20,7 @@ def setup_env(env: dict[str, str]):
     
 
 class VLLMSampler(AbstractSampler):
-    def __init__(self, model_id : str, max_output=32000):
+    def __init__(self, model_id : str, max_output=8000):
         self.max_output = max_output
         self.model_name = model_id
         # Set up environment
@@ -31,7 +31,12 @@ class VLLMSampler(AbstractSampler):
         
         # Start the server with tensor parallelism disabled
         self.server_process = subprocess.Popen(
-            ["deeptools", "vllm-serve", "--model", self.model_id, "--tensor-parallel-size", "1", "--gpu_memory_utilization", "0.9", "--max_model_len", "8000"],
+            ["deeptools", "vllm-serve", 
+             "--model", self.model_id, 
+             "--tensor-parallel-size", "1", 
+             "--gpu_memory_utilization", "0.9", 
+             "--max_model_len", str(self.max_output),
+             "--enable_prefix_caching", "True"],
             env=env
         )
         
