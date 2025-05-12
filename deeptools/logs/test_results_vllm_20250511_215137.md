@@ -47,7 +47,7 @@ last_week_prices.tail()  # To show the most recent data from the end date
 ```text
 Successfully executed. Output from code block:
 
-```Price            Close        High         Low        Open    Volume
+Price            Close        High         Low        Open    Volume
 Ticker            AAPL        AAPL        AAPL        AAPL      AAPL
 Date                                                                
 2023-10-16  177.419662  177.777044  175.225735  175.463995  52517000
@@ -56,7 +56,7 @@ Date
 2023-10-19  174.183350  176.546022  173.915310  174.759116  59302900
 
 **Status:** ✅ Success
-
+```
 ---
 
 ### Test Case 2
