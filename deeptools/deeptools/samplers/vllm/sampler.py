@@ -20,7 +20,7 @@ def setup_env(env: dict[str, str]):
     
 
 class VLLMSampler(AbstractSampler):
-    def __init__(self, model_id : str, max_output=9000):
+    def __init__(self, model_id : str, max_output=32000):
         self.max_output = max_output
         self.model_name = model_id
         # Set up environment

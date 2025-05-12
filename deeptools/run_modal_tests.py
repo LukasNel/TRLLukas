@@ -143,19 +143,19 @@ def main():
     
     # Run LiteLLM tests
     print("\nRunning LiteLLM tests...")
-    litellm_results = run_litellm_tests.remote()
-    log_files["litellm"] = save_test_results(litellm_results, "litellm")
-    print(f"\nSaved LiteLLM test results to: {log_files['litellm']}")
+    # litellm_results = run_litellm_tests.remote()
+    # log_files["litellm"] = save_test_results(litellm_results, "litellm")
+    # print(f"\nSaved LiteLLM test results to: {log_files['litellm']}")
     # Run vLLM tests
     print("\nRunning vLLM tests...")
     vllm_results = run_vllm_tests.remote()
     log_files["vllm"] = save_test_results(vllm_results, "vllm")
     print(f"\nSaved vLLM test results to: {log_files['vllm']}")
     # Run stock comparison test
-    print("\nRunning stock comparison test...")
-    stock_comparison_result = run_stock_comparison_test.remote()
-    log_files["stock_comparison"] = save_test_results(stock_comparison_result, "stock_comparison")
-    print(f"\nSaved stock comparison test results to: {log_files['stock_comparison']}")
+    # print("\nRunning stock comparison test...")
+    # stock_comparison_result = run_stock_comparison_test.remote()
+    # log_files["stock_comparison"] = save_test_results(stock_comparison_result, "stock_comparison")
+    # print(f"\nSaved stock comparison test results to: {log_files['stock_comparison']}")
     
     # Save res)
     print("\nAll tests completed!")

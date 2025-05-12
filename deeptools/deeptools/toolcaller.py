@@ -82,15 +82,15 @@ class ToolCaller:
                 is_in_code_block = False
                 try:
                     output, execution_logs, is_final_answer = pyexp(code_block)
-                    observation = "Successfully executed. Output from code block:\n" + str(execution_logs) + "\n"
+                    observation = "```text\nSuccessfully executed. Output from code block:\n" + str(execution_logs) + "\n```"
                     # print(observation)
                 except Exception as e:
-                    observation = "\n"
+                    observation = "```text\n"
                     if hasattr(pyexp, "state") and "_print_outputs" in pyexp.state:
                         execution_logs = str(pyexp.state["_print_outputs"])
                         if len(execution_logs) > 0:
                             observation += execution_logs
-                    observation += "Failed. Please try another strategy. " + str(e) + ""
+                    observation += "Failed. Please try another strategy. " + str(e) + "\n```"
                 try:
                     await gen.asend(observation)
                 except StopAsyncIteration:

@@ -363,6 +363,8 @@ def main(script_args: ScriptArguments):
         while llm.llm_engine.has_unfinished_requests():
             for request_output in llm.llm_engine.step():
                 # Add the new tokens to the cache
+                if request_output.request_id != request_id:
+                    continue # Skip if the request is not for this request_id
                 for output in request_output.outputs:
                     text = output.text
                     yield StreamingResponseTokenT(text=text, 
