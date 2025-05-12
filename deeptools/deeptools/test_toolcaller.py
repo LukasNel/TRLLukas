@@ -35,20 +35,19 @@ class TestToolCaller:
         if litellm_model_name is not None:
             self.litellm_toolcaller = ToolCaller(
                 sampler=LiteLLMSampler(model_name=litellm_model_name),
-                system_prompt=SYSTEM_PROMPT,
                 authorized_imports=["pandas"]
             )
         if vllm_model_id is not None:
             self.vllm_toolcaller = ToolCaller(
                 sampler=VLLMSampler(model_id=vllm_model_id),
-                system_prompt=SYSTEM_PROMPT,
                 authorized_imports=["pandas"]
             )
-        self.user_query = user_query
+        self.user_query = user_query or ""
         
     async def test_litellm_toolcaller(self):
         async for output in self.litellm_toolcaller.generate(
             user_prompt=self.user_query,
+            system_prompt=SYSTEM_PROMPT,
             tools=[StockPriceTool(cutoff_date=datetime.now().strftime("%Y-%m-%d"))]
         ):
             print(output, end="")
@@ -56,6 +55,7 @@ class TestToolCaller:
     async def test_vllm_toolcaller(self):
         async for output in self.vllm_toolcaller.generate(
             user_prompt=self.user_query,
+            system_prompt=SYSTEM_PROMPT,
             tools=[StockPriceTool(cutoff_date=datetime.now().strftime("%Y-%m-%d"))]
         ):
             print(output, end="")

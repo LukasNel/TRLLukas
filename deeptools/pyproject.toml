@@ -11,20 +11,25 @@ dependencies = [
     "transformers (>=4.51.3,<5.0.0)",
     "datasets (>=3.5.0,<4.0.0)",
     "accelerate (>=1.6.0,<2.0.0)",
-    "vllm (==0.8.3)",
-    "trl @ git+https://github.com/huggingface/trl.git@89556c8cbf1a816539167a46cdf285419e057fec",
-    "fastapi (>=0.115.12,<0.116.0)",
     "pydantic (>=2.11.3,<3.0.0)",
     "requests (>=2.32.3,<3.0.0)",
-    "uvicorn (>=0.34.2,<0.35.0)",
-    "bitsandbytes (>=0.45.5,<0.46.0)",
-    "litellm (>=1.67.1,<2.0.0)",
-    "smolagents (>=1.14.0,<2.0.0)",
     "yfinance (>=0.2.56,<0.3.0)",
-    "flashinfer-python",
-    "torch (==2.6.0)"
+    "smolagents (>=1.14.0,<2.0.0)"
 ]
 
+[project.optional-dependencies]
+vllm = [
+    "uvicorn (>=0.34.2,<0.35.0)",
+    "fastapi (>=0.115.12,<0.116.0)",
+    "bitsandbytes (>=0.45.5,<0.46.0)",
+    "torch (==2.6.0)",
+    "vllm (==0.8.3)",
+    "flashinfer-python",
+    "trl @ git+https://github.com/huggingface/trl.git@89556c8cbf1a816539167a46cdf285419e057fec"
+]
+litellm = [
+    "litellm (>=1.67.1,<2.0.0)",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

@@ -1,5 +1,4 @@
 from typing import AsyncGenerator, Generator
-from litellm import completion 
 import abc
 
 class AbstractSampler:
