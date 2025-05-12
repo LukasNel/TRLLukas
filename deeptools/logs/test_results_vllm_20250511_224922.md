@@ -297,7 +297,7 @@ apple_data = stock_price('AAPL', start_date.strftime('%Y-%m-%d'), end_date.strft
 closing_price = apple_data['Adj Close'][-1]
 
 print(f"Apple's stock price as of the most recent trading day was ${closing_price:.2f}.")
-```
+``
 ```text
 Failed. Please try another strategy. 
 Exception:
@@ -331,7 +331,7 @@ apple_data = stock_price('AAPL', start_date.strftime('%Y-%m-%d'), end_date.strft
 closing_price = apple_data['Close'][-1]
 
 print(f"Apple's stock price as of the latest trading day was ${closing_price:.2f}.")
-```
+``
 ```text
 Failed. Please try another strategy. 
 Exception:
@@ -383,7 +383,7 @@ MultiIndex([('Price', 'AAPL'),
        ('Open', 'AAPL'),
        ('Volume', 'AAPL')],
       )
-```
+``
 ```text
 Failed. Please try another strategy. 
 Exception:
@@ -422,7 +422,7 @@ apple_data = stock_price('AAPL', start_date.strftime('%Y-%m-%d'), end_date.strft
 closing_price = apple_data[('Close', 'AAPL')].iloc[-1]
 
 print(f"Apple's stock price as of the latest trading day ({end_date}) was ${closing_price:.2f}.")
-```
+``
 ```text
 Successfully executed. Output from code block:
 None
@@ -461,7 +461,7 @@ last_close = apple_data[('Close', 'AAPL')].iloc[-1]
 latest_date = apple_data.index[-1].strftime('%Y-%m-%d')
 
 print(f"As of {latest_date}, Apple's stock closed at ${last_close:.2f}.")
-```
+``
 ```text
 Successfully executed. Output from code block:
 None
