@@ -82,7 +82,7 @@ class ToolCaller:
                 is_in_code_block = False
                 try:
                     output, execution_logs, is_final_answer = pyexp(code_block)
-                    observation = "```text\nSuccessfully executed. Output from code block:\n" + str(execution_logs) + "\n```"
+                    observation = "\n```text\nSuccessfully executed. Output from code block:\n" + str(execution_logs) + "\n```"
                     # print(observation)
                 except Exception as e:
                     observation = "```text\n"
