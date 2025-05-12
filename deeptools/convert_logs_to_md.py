@@ -56,8 +56,7 @@ def convert_logs_to_markdown(json_file):
         md_content.append("---\n")
     
     # Generate output filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"test_results_{timestamp}.md"
+    output_file = json_file.replace(".json", ".md")
     
     # Write to markdown file
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -72,11 +71,10 @@ if __name__ == "__main__":
     if not json_files:
         print("No test results files found in logs directory")
         exit(1)
+    for file in json_files:
+        print(file)
+        json_path = os.path.join(log_dir, file)
+        # Convert to markdown
+        output_file = convert_logs_to_markdown(json_path)
+        print(f"Converted {json_path} to {output_file}") 
     
-    # Sort by timestamp in filename and get the most recent
-    latest_file = sorted(json_files)[-1]
-    json_path = os.path.join(log_dir, latest_file)
-    
-    # Convert to markdown
-    output_file = convert_logs_to_markdown(json_path)
-    print(f"Converted {json_path} to {output_file}") 
