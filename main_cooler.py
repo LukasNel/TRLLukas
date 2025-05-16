@@ -1,6 +1,6 @@
 import modal
 import os
-GPU_USED="A100-80gb"
+GPU_USED="A100-80gb:2"
 model_id = "Qwen/Qwen3-14B"
 app = modal.App("cooler")
 hf_cache_vol = modal.Volume.from_name("huggingface-cache2", create_if_missing=True)
@@ -20,11 +20,12 @@ image = (modal.Image.debian_slim(python_version="3.12")
         "/root/.cache/vllm": vllm_cache_vol,
     })
     .pip_install("datasets==2.15.0","bitsandbytes", "tqdm", "peft", "accelerate")
-    .add_local_python_source("cooler")
     .apt_install("git")
     .add_local_dir("deeptools","/deeptools", copy=True)
     .pip_install_from_pyproject("deeptools/pyproject.toml")
     .run_commands("ls && chmod +x deeptools/deeptools && cd deeptools && ls && pip install -e .")
+    .add_local_python_source("cooler")
+
 )
 
 @app.function(image=image, timeout=6000, gpu=GPU_USED,volumes={
@@ -40,7 +41,7 @@ async def run_cooler():
     os.environ['LOCAL_RANK'] ="0"
     os.environ['RANK'] ="0"
     os.environ['WORLD_SIZE'] ="1"
-    main()
+    await main()
 
 @app.local_entrypoint()
 def main():
