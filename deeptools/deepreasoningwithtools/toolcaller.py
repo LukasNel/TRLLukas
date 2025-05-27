@@ -1,5 +1,5 @@
 from typing import AsyncGenerator
-from deeptools.samplers.abstract import AbstractSampler
+from deepreasoningwithtools.samplers.abstract import AbstractSampler
 from smolagents import Tool, LocalPythonExecutor
 
 

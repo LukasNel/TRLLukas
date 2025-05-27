@@ -1,6 +1,6 @@
-from deeptools.toolcaller import ToolCaller
-from deeptools.samplers import LiteLLMSampler, VLLMSampler
-from deeptools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
+from deepreasoningwithtools.toolcaller import ToolCaller
+from deepreasoningwithtools.samplers import LiteLLMSampler, VLLMSampler
+from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
 from datetime import datetime
 SYSTEM_PROMPT="""You are an expert assistant. You will be given a task to solve as best you can. You have access to a python interpreter and a set of tools that runs anything you write 
 in a code block.

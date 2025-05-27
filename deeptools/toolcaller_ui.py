@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 # Modal setup
-app = modal.App("deeptools-ui")
+app = modal.App("deepreasoningwithtools-ui")
 GPU_USED = "A100-80gb"
 VLLM_MODEL_ID = "Qwen/QwQ-32B"
 LITELLM_MODEL_NAME = "together_ai/deepseek-ai/DeepSeek-R1"
@@ -64,14 +64,14 @@ PLEASE DO NOT WRITE CODE AS THE ANSWER, PROVIDE A REPORT in <answer> tags.
 vllm_image = (modal.Image.debian_slim(python_version="3.12")
     .pip_install("torch==2.6.0", "transformers")
     .apt_install("git")
-    .add_local_dir(".", "/deeptools", copy=True)
-    .run_commands("cd deeptools && pip install -e .[vllm]")
+    .add_local_dir(".", "/deepreasoningwithtools", copy=True)
+    .run_commands("cd deepreasoningwithtools && pip install -e .[vllm]")
 )
 
 litellm_image = (modal.Image.debian_slim(python_version="3.12")
     .apt_install("git")
-    .add_local_dir(".", "/deeptools", copy=True)
-    .run_commands("cd deeptools && pip install -e .[litellm]")
+    .add_local_dir(".", "/deepreasoningwithtools", copy=True)
+    .run_commands("cd deepreasoningwithtools && pip install -e .[litellm]")
 )
 
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
@@ -93,10 +93,10 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 )
 class VLLMToolCaller:
     def __init__(self):
-        from deeptools.toolcaller import ToolCaller
+        from deepreasoningwithtools.toolcaller import ToolCaller
         from smolagents import Tool
         
-        from deeptools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
+        from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
         self.toolcaller: Optional[ToolCaller] = None
         self.tools: List[Tool] = [
             StockPriceTool(cutoff_date=datetime.now().strftime("%Y-%m-%d")),
@@ -106,8 +106,8 @@ class VLLMToolCaller:
     @modal.enter()
     def init(self):
         import os
-        from deeptools.samplers.vllm.sampler import VLLMSampler
-        from deeptools.toolcaller import ToolCaller
+        from deepreasoningwithtools.samplers.vllm.sampler import VLLMSampler
+        from deepreasoningwithtools.toolcaller import ToolCaller
         # Set environment variables for NCCL
         os.environ.update({
             "NCCL_DEBUG": "INFO",
@@ -142,8 +142,8 @@ class VLLMToolCaller:
 )
 class LiteLLMToolCaller:
     def __init__(self):
-        from deeptools.toolcaller import ToolCaller
-        from deeptools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
+        from deepreasoningwithtools.toolcaller import ToolCaller
+        from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
         from smolagents import Tool
         self.toolcaller: Optional[ToolCaller] = None
         self.tools: list[Tool] = [
@@ -153,8 +153,8 @@ class LiteLLMToolCaller:
     
     @modal.enter()
     def init(self):
-        from deeptools.samplers.litellm_sampler import LiteLLMSampler
-        from deeptools.toolcaller import ToolCaller
+        from deepreasoningwithtools.samplers.litellm_sampler import LiteLLMSampler
+        from deepreasoningwithtools.toolcaller import ToolCaller
         self.toolcaller = ToolCaller(
             sampler=LiteLLMSampler(model_name=LITELLM_MODEL_NAME),
             authorized_imports=["pandas", "yfinance"]
@@ -188,6 +188,9 @@ def ui():
     vllm_toolcaller = VLLMToolCaller()
     litellm_toolcaller = LiteLLMToolCaller()
     
+    # Define default system prompt
+    DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant with access to stock market data through yfinance tools."
+    
     def generate_response(
         model_type: str,
         system_prompt: str,
@@ -197,27 +200,33 @@ def ui():
         """Generate a response using the selected model."""
         if not system_prompt.strip():
             system_prompt = DEFAULT_SYSTEM_PROMPT
-            
+        
+        # Clear user prompt from input field
+        user_input_temp = user_prompt
+        
         # Select the appropriate toolcaller
         toolcaller = vllm_toolcaller if model_type == "vLLM" else litellm_toolcaller
         
         # Start with empty response
         current_response = ""
         
+        # Create a new history list to avoid modifying input history
+        new_history = history.copy() if history else []
+        
         # Use remote_gen to stream the response
-        for chunk in toolcaller.generate.remote_gen(system_prompt, user_prompt):
+        for chunk in toolcaller.generate.remote_gen(system_prompt, user_input_temp):
             current_response += chunk
             # Update history with the current partial response
-            if len(history) > 0 and history[-1][0] == user_prompt:
-                history[-1][1] = current_response
+            if new_history and len(new_history) > 0 and new_history[-1][0] == user_input_temp:
+                new_history[-1][1] = current_response
             else:
-                history.append([user_prompt, current_response])
-            yield history
+                new_history.append([user_input_temp, current_response])
+            yield new_history, ""  # Also return empty string for user input
     
     with gr.Blocks(theme="soft") as demo:
-        gr.Markdown("# DeepTools AI Assistant")
+        gr.Markdown("# DeepReasoningTools AI Assistant")
         gr.Markdown("""
-        This interface allows you to interact with either vLLM or LiteLLM models using the DeepTools framework.
+        This interface allows you to interact with either vLLM or LiteLLM models using the DeepReasoningTools framework.
         The assistant has access to stock market data through yfinance tools.
         """)
         
@@ -247,10 +256,22 @@ def ui():
                     )
                     submit_btn = gr.Button("Submit")
         
+        # Add a clear button
+        clear_btn = gr.Button("Clear Conversation")
+        
+        def clear_conversation():
+            return [], ""
+        
+        clear_btn.click(
+            clear_conversation,
+            inputs=[],
+            outputs=[chatbot, user_prompt]
+        )
+        
         submit_btn.click(
             generate_response,
             inputs=[model_type, system_prompt, user_prompt, chatbot],
-            outputs=[chatbot],
+            outputs=[chatbot, user_prompt],  # Also update user input to clear it
             api_name="generate",
             concurrency_limit=1
         )
@@ -258,7 +279,7 @@ def ui():
         user_prompt.submit(
             generate_response,
             inputs=[model_type, system_prompt, user_prompt, chatbot],
-            outputs=[chatbot],
+            outputs=[chatbot, user_prompt],  # Also update user input to clear it
             api_name="generate",
             concurrency_limit=1
         )
@@ -268,6 +289,6 @@ def ui():
 @app.local_entrypoint()
 def main():
     """Deploy the Gradio interface."""
-    print("Deploying DeepTools UI...")
+    print("Deploying DeepReasoningTools UI...")
     print("Once deployed, you can access the UI at the URL provided by Modal.")
     print("To deploy, run: modal deploy toolcaller_ui.py") 

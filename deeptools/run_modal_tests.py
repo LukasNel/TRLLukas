@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Union
 from pathlib import Path
 
-app = modal.App("deeptools-tests")
+app = modal.App("deepreasoningwithtools-tests")
 GPU_USED = "A100-80gb"
 VLLM_MODEL_ID = "Qwen/QwQ-32B"
 LITELLM_MODEL_NAME = "together_ai/deepseek-ai/DeepSeek-R1"
@@ -30,14 +30,14 @@ vllm_image = (modal.Image.debian_slim(python_version="3.12")
         "/root/.cache/vllm": vllm_cache_vol,
     })
     .apt_install("git")
-    .add_local_dir(".", "/deeptools", copy=True)
-    .run_commands("cd deeptools && pip install -e .[vllm]")
+    .add_local_dir(".", "/deepreasoningwithtools", copy=True)
+    .run_commands("cd deepreasoningwithtools && pip install -e .[vllm]")
 )
 
 litellm_image = (modal.Image.debian_slim(python_version="3.12")
     .apt_install("git")
-    .add_local_dir(".", "/deeptools", copy=True)
-    .run_commands("cd deeptools && pip install -e .[litellm]")
+    .add_local_dir(".", "/deepreasoningwithtools", copy=True)
+    .run_commands("cd deepreasoningwithtools && pip install -e .[litellm]")
 )
 
 def save_test_results(results: Union[List[Dict[str, Any]], Dict[str, Any]], test_type: str) -> str:
@@ -82,7 +82,7 @@ def save_test_results(results: Union[List[Dict[str, Any]], Dict[str, Any]], test
 async def run_litellm_tests() -> List[Dict[str, Any]]:
     """Run comprehensive tests for LiteLLM toolcaller."""
     import os
-    from deeptools.test_modal_toolcaller import TestModalToolCaller
+    from deepreasoningwithtools.test_modal_toolcaller import TestModalToolCaller
     tester = TestModalToolCaller(litellm_model_name=LITELLM_MODEL_NAME)
     results = await tester.test_litellm_toolcaller()
     tester.print_test_results(results, "LiteLLM")
@@ -102,17 +102,17 @@ async def run_litellm_tests() -> List[Dict[str, Any]]:
 async def run_vllm_tests() -> List[Dict[str, Any]]:
     """Run comprehensive tests for vLLM toolcaller."""
     import os
-    from deeptools.test_modal_toolcaller import TestModalToolCaller
+    from deepreasoningwithtools.test_modal_toolcaller import TestModalToolCaller
     
     # Set environment variables for NCCL
-    os.environ.update({
-        "NCCL_DEBUG": "INFO",
-        "NCCL_IB_DISABLE": "1",
-        "NCCL_P2P_DISABLE": "1",
-        "LOCAL_RANK": "0",
-        "RANK": "0",
-        "WORLD_SIZE": "1"
-    })
+    # os.environ.update({
+    #     "NCCL_DEBUG": "INFO",
+    #     "NCCL_IB_DISABLE": "1",
+    #     "NCCL_P2P_DISABLE": "1",
+    #     "LOCAL_RANK": "0",
+    #     "RANK": "0",
+    #     "WORLD_SIZE": "1"
+    # })
     
     tester = TestModalToolCaller(vllm_model_id=VLLM_MODEL_ID)
     results = await tester.test_vllm_toolcaller()
@@ -129,7 +129,7 @@ async def run_vllm_tests() -> List[Dict[str, Any]]:
 async def run_stock_comparison_test() -> Dict[str, Any]:
     """Run a specific test comparing Apple and Tesla stock performance."""
     import os
-    from deeptools.test_modal_toolcaller import TestModalToolCaller
+    from deepreasoningwithtools.test_modal_toolcaller import TestModalToolCaller
     tester = TestModalToolCaller(litellm_model_name=LITELLM_MODEL_NAME)
     result = await tester.test_stock_comparison()
     tester.print_test_results([result], "Stock Comparison")
@@ -138,7 +138,7 @@ async def run_stock_comparison_test() -> Dict[str, Any]:
 @app.local_entrypoint()
 def main():
     """Run all tests and print combined results."""
-    print("Starting comprehensive tests for DeepTools...")
+    print("Starting comprehensive tests for deepreasoningwithtools...")
     log_files = {}
     
     # Run LiteLLM tests

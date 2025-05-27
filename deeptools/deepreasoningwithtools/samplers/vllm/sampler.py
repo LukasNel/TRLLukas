@@ -1,6 +1,6 @@
 import subprocess
 from typing import AsyncGenerator
-from deeptools.samplers.abstract import AbstractSampler
+from deepreasoningwithtools.samplers.abstract import AbstractSampler
 from .vllm_client import VLLMClient
 import os
 import torch
@@ -31,7 +31,7 @@ class VLLMSampler(AbstractSampler):
         
         # Start the server with tensor parallelism disabled
         self.server_process = subprocess.Popen(
-            ["deeptools", "vllm-serve", 
+            ["deepreasoningwithtools", "vllm-serve", 
              "--model", self.model_id, 
              "--tensor-parallel-size", "1", 
              "--gpu_memory_utilization", "0.9", 

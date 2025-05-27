@@ -1,4 +1,4 @@
-from deeptools.samplers.abstract import AbstractSampler
+from deepreasoningwithtools.samplers.abstract import AbstractSampler
 from typing import AsyncGenerator
 from litellm import completion
 

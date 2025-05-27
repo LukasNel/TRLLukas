@@ -23,8 +23,8 @@ from torch.distributed import ProcessGroup, TCPStore
 import torch
 from torch import nn
 
-from deeptools.import_utils import is_requests_available, is_vllm_ascend_available, is_vllm_available
-from deeptools.records import StreamingResponseTokenT
+from deepreasoningwithtools.import_utils import is_requests_available, is_vllm_ascend_available, is_vllm_available
+from deepreasoningwithtools.records import StreamingResponseTokenT
 
 if is_requests_available():
     import requests

@@ -1,5 +1,5 @@
-from deeptools.toolcaller import ToolCaller
-from deeptools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
+from deepreasoningwithtools.toolcaller import ToolCaller
+from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
 from datetime import datetime
 import asyncio
 from typing import List, Dict, Any
@@ -79,7 +79,7 @@ class TestModalToolCaller:
 
     async def test_litellm_toolcaller(self) -> List[Dict[str, Any]]:
         """Run comprehensive tests for LiteLLM toolcaller."""
-        from deeptools.samplers.litellm_sampler import LiteLLMSampler
+        from deepreasoningwithtools.samplers.litellm_sampler import LiteLLMSampler
         if not self.litellm_model_name:
             return []
             
@@ -101,7 +101,7 @@ class TestModalToolCaller:
         return results
 
     async def test_vllm_toolcaller(self) -> List[Dict[str, Any]]:
-        from deeptools.samplers.vllm.sampler import VLLMSampler
+        from deepreasoningwithtools.samplers.vllm.sampler import VLLMSampler
 
         """Run comprehensive tests for vLLM toolcaller."""
         if not self.vllm_model_id:
@@ -126,7 +126,7 @@ class TestModalToolCaller:
 
     async def test_stock_comparison(self) -> Dict[str, Any]:
         """Run a specific test comparing Apple and Tesla stock performance."""
-        from deeptools.samplers.litellm_sampler import LiteLLMSampler
+        from deepreasoningwithtools.samplers.litellm_sampler import LiteLLMSampler
         
         if not self.litellm_model_name:
             return {"query": "Stock comparison test", "response": "No model specified", "success": False}

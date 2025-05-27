@@ -1,12 +1,22 @@
 [project]
-name = "deeptools"
-version = "0.1.0"
+name = "deepreasoningwithtools"
+version = "0.1.1"
 description = "A package to inject python execution into the reasoning trace of LLMs."
 authors = [
-    {name = "Lukas",email = "lukas@nelsoftware.com"}
+    {name = "Lukas", email = "lukas@nelsoftware.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+keywords = ["llm", "reasoning", "tools", "python", "ai"]
 dependencies = [
     "transformers (>=4.51.3,<5.0.0)",
     "datasets (>=3.5.0,<4.0.0)",
@@ -25,18 +35,22 @@ vllm = [
     "torch (==2.6.0)",
     "vllm (==0.8.3)",
     "flashinfer-python",
-    "trl @ git+https://github.com/huggingface/trl.git@89556c8cbf1a816539167a46cdf285419e057fec"
 ]
+
 litellm = [
     "litellm (>=1.67.1,<2.0.0)",
 ]
+[project.urls]
+Homepage = "https://github.com/LukasNel/TRLLukas/tree/master/deeptools"
+Repository = "https://github.com/LukasNel/TRLLukas.git"
+Documentation = "https://github.com/LukasNel/TRLLukas/tree/master/deeptools#readme"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project.scripts]
-deeptools = "deeptools.cli:cli_main"
+deepreasoningwithtools = "deepreasoningwithtools.cli:cli_main"
 
 [[tool.poetry.source]]
 name = "flashinfer"

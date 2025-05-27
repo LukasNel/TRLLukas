@@ -23,15 +23,15 @@ import uuid
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import torch 
 from transformers import AutoTokenizer
-from deeptools.utils import CLIParser
-from deeptools.import_utils import (
+from deepreasoningwithtools.utils import CLIParser
+from deepreasoningwithtools.import_utils import (
     is_fastapi_available,
     is_pydantic_available,
     is_uvicorn_available,
     is_vllm_ascend_available,
     is_vllm_available,
 )
-from deeptools.records import StreamingResponseTokenT
+from deepreasoningwithtools.records import StreamingResponseTokenT
 
 if is_fastapi_available():
     from fastapi import BackgroundTasks, FastAPI
@@ -285,7 +285,7 @@ def main(script_args: ScriptArguments):
         # This is particularly useful here because we generate completions from the same prompts.
         enable_prefix_caching=script_args.enable_prefix_caching,
         max_model_len=script_args.max_model_len,
-        worker_extension_cls="deeptools.samplers.vllm.vllm_server.WeightSyncWorkerExtension",
+        worker_extension_cls="deepreasoningwithtools.samplers.vllm.vllm_server.WeightSyncWorkerExtension",
     )
 
     app = FastAPI()

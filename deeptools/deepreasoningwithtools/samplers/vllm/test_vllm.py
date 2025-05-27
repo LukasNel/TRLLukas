@@ -25,7 +25,7 @@ class TestVLLMClientServerTP():
         
         # Start the server with tensor parallelism disabled
         self.server_process = subprocess.Popen(
-            ["deeptools", "vllm-serve", "--model", self.model_id, "--tensor-parallel-size", "1", "--gpu_memory_utilization", "0.9", "--max_model_len", "8000"],
+            ["deepreasoningwithtools", "vllm-serve", "--model", self.model_id, "--tensor-parallel-size", "1", "--gpu_memory_utilization", "0.9", "--max_model_len", "8000"],
             env=env
         )
         

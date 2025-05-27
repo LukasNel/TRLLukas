@@ -1,6 +1,6 @@
-# DeepTools
+# Deep Reasoning Tools
 
-DeepTools is a powerful Python library that helps integrate tool calling into reasoning traces, built on top of the smolagents local Python interpreter. It provides a flexible framework for creating AI agents from reasoning agents that can use tools and perform complex reasoning tasks.
+Deep Reasoning Tools is a powerful Python library that helps integrate tool calling into reasoning traces, built on top of the smolagents local Python interpreter. It provides a flexible framework for creating AI agents from reasoning agents that can use tools and perform complex reasoning tasks.
 
 ## Features
 
@@ -14,15 +14,15 @@ DeepTools is a powerful Python library that helps integrate tool calling into re
 ## Installation
 
 ```bash
-pip install deeptools
+pip install deepreasoningwithtools
 ```
 
 ## Quick Start
 
 ```python
-from deeptools.toolcaller import ToolCaller
-from deeptools.samplers import LiteLLMSampler
-from deeptools.tools.yfinance_tools import StockPriceTool
+from deepreasoningwithtools.toolcaller import ToolCaller
+from deepreasoningwithtools.samplers import LiteLLMSampler
+from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool
 from datetime import datetime
 
 # Initialize the tool caller with a LiteLLM model
@@ -132,7 +132,7 @@ The ToolCaller handles several key aspects:
 
 ### Samplers
 
-DeepTools provides an abstract sampler interface and two concrete implementations:
+DeepReasoningTools provides an abstract sampler interface and two concrete implementations:
 
 1. **AbstractSampler**: Base class defining the sampling interface
 2. **LiteLLMSampler**: Integration with LiteLLM for various model providers
@@ -154,7 +154,7 @@ messages = [
 To create a custom sampler:
 
 ```python
-from deeptools.samplers.abstract import AbstractSampler
+from deepreasoningwithtools.samplers.abstract import AbstractSampler
 from typing import AsyncGenerator
 
 class CustomSampler(AbstractSampler):
@@ -259,6 +259,22 @@ toolcaller = ToolCaller(
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
+### Running Tests
+
+The test suite is designed to run on Modal, a serverless platform that provides a consistent environment for testing. To run the tests:
+
+1. **Setup Modal**:
+   ```bash
+   modal setup
+   ```
+   This will guide you through setting up your Modal account and authentication.
+
+2. **Run Tests**:
+   ```bash
+   modal run run_modal_tests.py
+   ```
+   This will execute the test suite in Modal's cloud environment.
+
 ## License
 
 This project is licensed under the MIT license.
@@ -270,9 +286,9 @@ This project is licensed under the MIT license.
 Here's a complete example of using the LiteLLM ToolCaller with a GPT model:
 
 ```python
-from deeptools.toolcaller import ToolCaller
-from deeptools.samplers import LiteLLMSampler
-from deeptools.tools.yfinance_tools import StockPriceTool
+from deepreasoningwithtools.toolcaller import ToolCaller
+from deepreasoningwithtools.samplers import LiteLLMSampler
+from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool
 from datetime import datetime
 import asyncio
 
@@ -313,9 +329,9 @@ if __name__ == "__main__":
 Here's a complete example of using the vLLM ToolCaller for high-performance inference:
 
 ```python
-from deeptools.toolcaller import ToolCaller
-from deeptools.samplers import VLLMSampler
-from deeptools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
+from deepreasoningwithtools.toolcaller import ToolCaller
+from deepreasoningwithtools.samplers import VLLMSampler
+from deepreasoningwithtools.tools.yfinance_tools import StockPriceTool, CompanyFinancialsTool
 from datetime import datetime
 import asyncio
 
