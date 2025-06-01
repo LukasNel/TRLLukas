@@ -1,13 +1,14 @@
 from smolagents import Tool
 from datetime import datetime
 import yfinance as yf
-
+import pandas as pd
 
 class CompanyFinancialsTool(Tool):
     name = "company_financials"
     description = """
     This tool fetches financial data for a company using yfinance.
     It returns the financial statements as requested.
+    The fetch_before_date is the date before which to fetch the financial data.
     Will throw an exception if asked for data beyond the cutoff date.
     """
     inputs = {
@@ -22,6 +23,10 @@ class CompanyFinancialsTool(Tool):
         "period": {
             "type": "string",
             "description": "Period of the financial data: 'annual' or 'quarterly'",
+        },
+        "fetch_before_date": {
+            "type": "string",
+            "description": "The date before which to fetch the financial data in format 'YYYY-MM-DD'",
         }
     }
     output_type = "object"
@@ -43,42 +48,53 @@ class CompanyFinancialsTool(Tool):
         super().__init__()
         
 
-    def forward(self, ticker: str, statement_type: str, period: str):
-        # First check if we're allowed to access this data based on cutoff date
-        current_date = datetime.now()
-        if self.cutoff_date and current_date > self.cutoff_date:
-            raise Exception(f"Access to financial data not allowed beyond cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
+    def forward(self, ticker: str, statement_type: str, period: str, fetch_before_date: str,):
+        # Convert string dates to datetime objects
+        fetch_before = datetime.strptime(fetch_before_date, "%Y-%m-%d")
         
-        # Get the stock data
-        ticker_obj = yf.Ticker(ticker)
+        # Check if we're allowed to access this data based on cutoff date
+        if self.cutoff_date and fetch_before > self.cutoff_date:
+            raise ValueError(f"Cannot fetch data beyond cutoff date {self.cutoff_date}")
+
+        # Get company info
+        stock = yf.Ticker(ticker)
         
-        # Fetch the appropriate financial statement
-        if statement_type.lower() == 'income':
-            if period.lower() == 'annual':
-                financials = ticker_obj.income_stmt
-            elif period.lower() == 'quarterly':
-                financials = ticker_obj.quarterly_income_stmt
-            else:
-                raise ValueError("Period must be either 'annual' or 'quarterly'")
-        elif statement_type.lower() == 'balance':
-            if period.lower() == 'annual':
-                financials = ticker_obj.balance_sheet
-            elif period.lower() == 'quarterly':
-                financials = ticker_obj.quarterly_balance_sheet
-            else:
-                raise ValueError("Period must be either 'annual' or 'quarterly'")
-        elif statement_type.lower() == 'cash':
-            if period.lower() == 'annual':
-                financials = ticker_obj.cashflow
-            elif period.lower() == 'quarterly':
-                financials = ticker_obj.quarterly_cashflow
-            else:
-                raise ValueError("Period must be either 'annual' or 'quarterly'")
+        # Map statement type to yfinance method
+        statement_methods = {
+            'income': stock.income_stmt,
+            'balance': stock.balance_sheet,
+            'cash': stock.cashflow
+        }
+        
+        if statement_type not in statement_methods:
+            raise ValueError(f"Invalid statement type. Must be one of: {', '.join(statement_methods.keys())}")
+            
+        # Get the financial statement
+        statement = statement_methods[statement_type]
+        
+        # Get data with specified period
+        if period == 'annual':
+            data = statement.yearly
+        elif period == 'quarterly':
+            data = statement.quarterly
         else:
-            raise ValueError("Statement type must be one of: 'income', 'balance', or 'cash'")
+            raise ValueError("Period must be either 'annual' or 'quarterly'")
+            
+        # Convert index to datetime if not already
+        if not isinstance(data.index, pd.DatetimeIndex):
+            data.index = pd.to_datetime(data.index)
+            
+        # Filter data before fetch_before date and get the most recent
+        filtered_data = data.loc[data.index <= fetch_before]
         
-        # Convert to dictionary for easier serialization
-        return financials
+        if filtered_data.empty:
+            raise ValueError(f"No financial data available before {fetch_before_date}")
+            
+        # Get the most recent statement before the fetch_before date
+        latest_statement = filtered_data.iloc[-1]
+        
+        # Convert to dictionary and handle any non-serializable types
+        return latest_statement
 
 class StockPriceTool(Tool):
     name = "stock_price"

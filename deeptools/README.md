@@ -12,11 +12,14 @@ Deep Reasoning Tools is a powerful Python library that helps integrate tool call
 - **Extensible Architecture**: Easy to add new tools and samplers
 
 ## Installation
-
+For VLLM:
 ```bash
-pip install deepreasoningwithtools
+pip install deepreasoningwithtools[vllm]
 ```
-
+For Litellm:
+```bash
+pip install deepreasoningwithtools[litellm]
+```
 ## Quick Start
 
 ```python
